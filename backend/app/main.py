@@ -25,7 +25,7 @@ app = FastAPI(
 )
 
 # Frontend build directory
-BASE_DIR = Path(file).resolve().parents[2]
+BASE_DIR = Path(__file__).resolve().parents[2]
 FRONTEND_DIR = BASE_DIR / "frontend" / "dist"
 INDEX_FILE = FRONTEND_DIR / "index.html"
 
@@ -81,7 +81,7 @@ def serve_frontend_routes(full_path: str):
     from fastapi import HTTPException
     raise HTTPException(status_code=404, detail="Frontend build not found")
 
-if name == "main":
+if __name__ == "main":
     import uvicorn
 
     uvicorn.run(
