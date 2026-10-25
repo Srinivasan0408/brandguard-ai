@@ -1,5 +1,5 @@
 # BRANDGUARD AI
-## Inkloom AI Hackathon — Round 2: The Build
+## TechCircuit Hackathon — Round 2: The Build
 ### Team: TECHSPARKZ
 ### Tagline: *Create Freely. Publish Confidently.*
 
