@@ -44,7 +44,10 @@ def check_approved_facts(content: str, facts: List[Dict[str, Any]]) -> List[Dict
                         ),
                         "applicable_guideline": f"Verified Product Registry: {product_name} {attribute} must be {approved_val}",
                         "approved_source": f"{source_title} ({source_url})" if source_url else source_title,
+                        "evidence_record_id": fact.get("id"),
+                        "evidence_status": "verified",
                         "recommended_correction": approved_val,
+                        "correction_rationale": f"Replaces contradictory pricing '{detected_raw}' with verified registry price '{approved_val}' (Record #{fact.get('id')}).",
                         "detection_method": "approved_fact_check",
                         "confidence": "high",
                         "status": "open"
@@ -77,7 +80,10 @@ def check_approved_facts(content: str, facts: List[Dict[str, Any]]) -> List[Dict
                         ),
                         "applicable_guideline": f"Approved Warranty: {approved_val}",
                         "approved_source": source_title,
+                        "evidence_record_id": fact.get("id"),
+                        "evidence_status": "verified",
                         "recommended_correction": f"{approved_val} warranty",
+                        "correction_rationale": f"Corrects warranty period to officially backed '{approved_val}' duration.",
                         "detection_method": "approved_fact_check",
                         "confidence": "high",
                         "status": "open"

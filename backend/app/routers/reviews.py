@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException, Query, UploadFile, File, Form
+from fastapi import APIRouter, HTTPException, Query, UploadFile, File, Form, Depends
 from typing import List, Optional
 import os
 from ..db.database import db
@@ -12,6 +12,7 @@ from ..models.schemas import (
 )
 from ..engine.reviewer import run_review
 from ..config import settings
+from ..auth import get_current_user_optional, require_role, validate_org_access
 
 router = APIRouter(prefix="/api/reviews", tags=["Content Reviews & Approval Workflow"])
 
@@ -20,14 +21,24 @@ ALLOWED_EXTENSIONS = {".txt", ".md", ".markdown"}
 @router.get("", response_model=List[ContentItem])
 def list_reviews(
     brand_id: Optional[str] = Query(None),
-    status: Optional[str] = Query(None)
+    status: Optional[str] = Query(None),
+    current_user: Optional[dict] = Depends(get_current_user_optional)
 ):
-    return db.list_content_items(brand_id=brand_id, status=status)
+    org_id = current_user.get("organization_id") if current_user else None
+    return db.list_content_items(brand_id=brand_id, status=status, organization_id=org_id)
 
 @router.post("", response_model=ContentItem, status_code=201)
-async def create_and_review_content(request: ContentCreateRequest):
+async def create_and_review_content(
+    request: ContentCreateRequest,
+    current_user: Optional[dict] = Depends(get_current_user_optional)
+):
     # 1. Create content item in database
-    created_item = db.create_content_item(request.model_dump())
+    data = request.model_dump()
+    if current_user:
+        data["organization_id"] = current_user.get("organization_id", "org-novatech")
+        data["created_by"] = current_user.get("full_name", current_user.get("username", "Creator"))
+
+    created_item = db.create_content_item(data)
     content_id = created_item["id"]
 
     # 2. Run initial brand compliance review
@@ -44,38 +55,80 @@ async def create_and_review_content(request: ContentCreateRequest):
     return db.get_content_item(content_id)
 
 @router.get("/{review_id}", response_model=ContentItem)
-def get_review(review_id: str):
+def get_review(
+    review_id: str,
+    current_user: Optional[dict] = Depends(get_current_user_optional)
+):
     item = db.get_content_item(review_id)
     if not item:
         raise HTTPException(status_code=404, detail="Content item not found")
+    if current_user:
+        validate_org_access(current_user, item.get("organization_id", "org-novatech"), "review")
     return item
 
 @router.post("/{review_id}/submit", response_model=ContentItem)
-def submit_for_human_review(review_id: str, action: ContentWorkflowAction):
+def submit_for_human_review(
+    review_id: str,
+    action: ContentWorkflowAction,
+    current_user: Optional[dict] = Depends(get_current_user_optional)
+):
     item = db.get_content_item(review_id)
     if not item:
         raise HTTPException(status_code=404, detail="Content item not found")
+
+    if current_user:
+        validate_org_access(current_user, item.get("organization_id", "org-novatech"), "review")
+
+    effective_actor = current_user.get("full_name") if current_user else action.actor_name
+    effective_role = current_user.get("role") if current_user else action.actor_role
 
     updated = db.update_content_status(
         content_id=review_id,
         new_status="in_review",
-        actor_name=action.actor_name,
-        actor_role=action.actor_role,
+        actor_name=effective_actor,
+        actor_role=effective_role,
         comments=action.comments or "Submitted for human governance review"
     )
     return updated
 
 @router.post("/{review_id}/approve", response_model=ContentItem)
-def approve_content_review(review_id: str, action: ContentWorkflowAction):
+def approve_content_review(
+    review_id: str,
+    action: ContentWorkflowAction,
+    current_user: Optional[dict] = Depends(get_current_user_optional)
+):
     item = db.get_content_item(review_id)
     if not item:
         raise HTTPException(status_code=404, detail="Content item not found")
 
+    if current_user:
+        validate_org_access(current_user, item.get("organization_id", "org-novatech"), "review")
+
+    # If authenticated via token, enforce role from authenticated token
+    effective_role = current_user.get("role") if current_user else action.actor_role
+    effective_actor = current_user.get("full_name") if current_user else action.actor_name
+
     # Security & Role check: Only reviewer or admin can approve
-    if action.actor_role not in ("reviewer", "admin"):
+    if effective_role not in ("reviewer", "admin"):
+        db.record_audit_log(
+            user_id=current_user.get("id") if current_user else None,
+            username=current_user.get("username") if current_user else action.actor_name,
+            action="unauthorized_approval_attempt",
+            resource_type="content_item",
+            resource_id=review_id,
+            details=f"User with role '{effective_role}' attempted to approve content without authorization.",
+            organization_id=item.get("organization_id", "org-novatech")
+        )
         raise HTTPException(
             status_code=403,
             detail="Forbidden: Only authorized reviewers or administrators can approve content."
+        )
+
+    # Separation of duties: Creator cannot approve their own submission unless admin
+    if effective_role == "reviewer" and item.get("created_by") == effective_actor:
+        raise HTTPException(
+            status_code=403,
+            detail="Forbidden: Creators cannot approve their own content due to separation of duties enforcement."
         )
 
     # Workflow state check: Must be in_review or changes_requested to approve
@@ -85,23 +138,119 @@ def approve_content_review(review_id: str, action: ContentWorkflowAction):
             detail=f"Cannot approve content with current status '{item['status']}'. It must be 'in_review'."
         )
 
+    # Enforce: Open critical violations strictly block approval
+    latest_review = item.get("latest_review")
+    if latest_review and latest_review.get("findings"):
+        critical_open = [
+            f for f in latest_review["findings"]
+            if f.get("severity") == "critical" and f.get("status") in ("open", "pending", None)
+        ]
+        if critical_open:
+            rule_titles = ", ".join([f.get("title", "Critical violation") for f in critical_open])
+            raise HTTPException(
+                status_code=400,
+                detail=f"Cannot approve content with unresolved critical violations: {rule_titles}. All critical issues must be resolved before publication approval."
+            )
+
     updated = db.update_content_status(
         content_id=review_id,
         new_status="approved",
-        actor_name=action.actor_name,
-        actor_role=action.actor_role,
+        actor_name=effective_actor,
+        actor_role=effective_role,
         comments=action.comments or "Content approved for publication"
     )
+
+    db.record_audit_log(
+        user_id=current_user.get("id") if current_user else None,
+        username=current_user.get("username") if current_user else action.actor_name,
+        action="content_approved",
+        resource_type="content_item",
+        resource_id=review_id,
+        details=f"Content '{item['title']}' was approved for release.",
+        organization_id=item.get("organization_id", "org-novatech")
+    )
+
     return updated
 
-@router.post("/{review_id}/request-changes", response_model=ContentItem)
-def request_changes(review_id: str, action: ContentWorkflowAction):
+@router.post("/{review_id}/reject", response_model=ContentItem)
+def reject_content_review(
+    review_id: str,
+    action: ContentWorkflowAction,
+    current_user: Optional[dict] = Depends(get_current_user_optional)
+):
     item = db.get_content_item(review_id)
     if not item:
         raise HTTPException(status_code=404, detail="Content item not found")
 
+    if current_user:
+        validate_org_access(current_user, item.get("organization_id", "org-novatech"), "review")
+
+    effective_role = current_user.get("role") if current_user else action.actor_role
+    effective_actor = current_user.get("full_name") if current_user else action.actor_name
+
+    # Role check: Only reviewer or admin can reject
+    if effective_role not in ("reviewer", "admin"):
+        db.record_audit_log(
+            user_id=current_user.get("id") if current_user else None,
+            username=current_user.get("username") if current_user else action.actor_name,
+            action="unauthorized_reject_attempt",
+            resource_type="content_item",
+            resource_id=review_id,
+            details=f"User with role '{effective_role}' attempted to reject content without authorization.",
+            organization_id=item.get("organization_id", "org-novatech")
+        )
+        raise HTTPException(
+            status_code=403,
+            detail="Forbidden: Only authorized reviewers or administrators can reject content."
+        )
+
+    updated = db.update_content_status(
+        content_id=review_id,
+        new_status="rejected",
+        actor_name=effective_actor,
+        actor_role=effective_role,
+        comments=action.comments or "Content rejected by governance reviewer."
+    )
+
+    db.record_audit_log(
+        user_id=current_user.get("id") if current_user else None,
+        username=current_user.get("username") if current_user else action.actor_name,
+        action="content_rejected",
+        resource_type="content_item",
+        resource_id=review_id,
+        details=f"Content '{item['title']}' was rejected. Reason: {action.comments or 'Non-compliant'}",
+        organization_id=item.get("organization_id", "org-novatech")
+    )
+
+    return updated
+
+@router.post("/{review_id}/request-changes", response_model=ContentItem)
+def request_changes(
+    review_id: str,
+    action: ContentWorkflowAction,
+    current_user: Optional[dict] = Depends(get_current_user_optional)
+):
+    item = db.get_content_item(review_id)
+    if not item:
+        raise HTTPException(status_code=404, detail="Content item not found")
+
+    if current_user:
+        validate_org_access(current_user, item.get("organization_id", "org-novatech"), "review")
+
+    effective_role = current_user.get("role") if current_user else action.actor_role
+    effective_actor = current_user.get("full_name") if current_user else action.actor_name
+
     # Security & Role check
-    if action.actor_role not in ("reviewer", "admin"):
+    if effective_role not in ("reviewer", "admin"):
+        db.record_audit_log(
+            user_id=current_user.get("id") if current_user else None,
+            username=current_user.get("username") if current_user else action.actor_name,
+            action="unauthorized_change_request_attempt",
+            resource_type="content_item",
+            resource_id=review_id,
+            details=f"User with role '{effective_role}' attempted to request changes without authorization.",
+            organization_id=item.get("organization_id", "org-novatech")
+        )
         raise HTTPException(
             status_code=403,
             detail="Forbidden: Only authorized reviewers can request changes."
@@ -110,17 +259,38 @@ def request_changes(review_id: str, action: ContentWorkflowAction):
     updated = db.update_content_status(
         content_id=review_id,
         new_status="changes_requested",
-        actor_name=action.actor_name,
-        actor_role=action.actor_role,
+        actor_name=effective_actor,
+        actor_role=effective_role,
         comments=action.comments or "Changes requested by reviewer"
     )
+
+    db.record_audit_log(
+        user_id=current_user.get("id") if current_user else None,
+        username=current_user.get("username") if current_user else action.actor_name,
+        action="content_changes_requested",
+        resource_type="content_item",
+        resource_id=review_id,
+        details=f"Changes requested for '{item['title']}': {action.comments}",
+        organization_id=item.get("organization_id", "org-novatech")
+    )
+
     return updated
 
 @router.post("/{review_id}/revise", response_model=ContentItem)
-async def revise_content(review_id: str, req: ContentReviseRequest):
+async def revise_content(
+    review_id: str,
+    req: ContentReviseRequest,
+    current_user: Optional[dict] = Depends(get_current_user_optional)
+):
     item = db.get_content_item(review_id)
     if not item:
         raise HTTPException(status_code=404, detail="Content item not found")
+
+    if current_user:
+        validate_org_access(current_user, item.get("organization_id", "org-novatech"), "review")
+
+    effective_actor = current_user.get("full_name") if current_user else req.actor_name
+    effective_role = current_user.get("role") if current_user else req.actor_role
 
     # 1. Create new revision snapshot
     revised_item = db.revise_content_item(
@@ -128,8 +298,8 @@ async def revise_content(review_id: str, req: ContentReviseRequest):
         new_text=req.content_text,
         new_alt_text=req.image_alt_text,
         change_summary=req.change_summary,
-        actor_name=req.actor_name,
-        actor_role=req.actor_role
+        actor_name=effective_actor,
+        actor_role=effective_role
     )
 
     # 2. Rerun review engine for the new revision

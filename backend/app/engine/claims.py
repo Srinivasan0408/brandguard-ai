@@ -73,7 +73,10 @@ def check_promotional_claims(content: str, brand: Dict[str, Any]) -> List[Dict[s
                 "explanation": rule["explanation"],
                 "applicable_guideline": rule["guideline"],
                 "approved_source": "Brand Knowledge Hub - Claims & Advertising Policy",
+                "evidence_record_id": f"policy-claims-{rule['severity']}",
+                "evidence_status": "insufficient_evidence",
                 "recommended_correction": rule["replacement"],
+                "correction_rationale": "Mitigates compliance risk by substituting absolute unprovable superlatives with verifiable enterprise benchmark claims.",
                 "detection_method": "deterministic_rule",
                 "confidence": "high",
                 "status": "open"

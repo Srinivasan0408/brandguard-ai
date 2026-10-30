@@ -3,8 +3,24 @@ from datetime import datetime, timezone
 
 NOVATECH_BRAND_ID = "brand-novatech-001"
 
+SAMPLE_ORGANIZATIONS = [
+    {
+        "id": "org-novatech",
+        "name": "NovaTech Enterprise",
+        "slug": "novatech",
+        "created_at": "2026-01-01T00:00:00Z"
+    },
+    {
+        "id": "org-apex",
+        "name": "Apex Global Corporation",
+        "slug": "apex",
+        "created_at": "2026-01-01T00:00:00Z"
+    }
+]
+
 SAMPLE_BRAND = {
     "id": NOVATECH_BRAND_ID,
+    "organization_id": "org-novatech",
     "name": "NovaTech",
     "description": "Enterprise cloud security, intelligent infrastructure, and next-generation AI hardware solutions.",
     "preferred_tone": "Professional, clear, helpful, and trustworthy. We speak with authoritative calm, avoiding hype and hyperbole.",
@@ -41,7 +57,8 @@ SAMPLE_BRAND = {
     "formatting_preferences": {
         "price_format": "₹{amount}",
         "date_format": "YYYY-MM-DD",
-        "disclaimer_position": "footer"
+        "disclaimer_position": "footer",
+        "brand_colors": ["#06b6d4", "#14b8a6", "#0f172a", "#1e293b", "#ffffff"]
     },
     "created_at": "2026-01-01T00:00:00Z",
     "updated_at": "2026-01-01T00:00:00Z"
@@ -137,3 +154,79 @@ SAMPLE_DEMO_POSTS = [
         "notes": "Fully follows all guidelines: exact approved name, correct approved price ₹4,999, warranty 12 months, professional tone, and required phrases included."
     }
 ]
+
+# --- Round 3 Users Seed Data ---
+SAMPLE_USERS = [
+    {
+        "id": "usr-admin-001",
+        "username": "admin",
+        "email": "admin@novatech.internal",
+        "full_name": "Chief Governance Administrator",
+        "role": "admin",
+        "organization_id": "org-novatech",
+        "password_hash": "4440b59f36ca78c536e91d6a8d6cc580c3433bca88e11b2bc86abaf33731f25f",
+        "created_at": "2026-01-01T00:00:00Z"
+    },
+    {
+        "id": "usr-creator-001",
+        "username": "creator",
+        "email": "alice.creator@novatech.internal",
+        "full_name": "Alice Creator",
+        "role": "creator",
+        "organization_id": "org-novatech",
+        "password_hash": "131eb21d2479470edd6664a25592b5840a825e9bfb617732780ac59219af37a8",
+        "created_at": "2026-01-01T00:00:00Z"
+    },
+    {
+        "id": "usr-reviewer-001",
+        "username": "reviewer",
+        "email": "bob.reviewer@novatech.internal",
+        "full_name": "Bob Reviewer (Lead Compliance)",
+        "role": "reviewer",
+        "organization_id": "org-novatech",
+        "password_hash": "c58ff0dbbc8e0df10abc093d8f649a40174e608d95b81aa044743891ba632417",
+        "created_at": "2026-01-01T00:00:00Z"
+    },
+    {
+        "id": "usr-apex-admin-001",
+        "username": "apex_admin",
+        "email": "admin@apex.internal",
+        "full_name": "Apex Administrator",
+        "role": "admin",
+        "organization_id": "org-apex",
+        "password_hash": "4440b59f36ca78c536e91d6a8d6cc580c3433bca88e11b2bc86abaf33731f25f",
+        "created_at": "2026-01-01T00:00:00Z"
+    },
+    {
+        "id": "usr-apex-creator-001",
+        "username": "apex_creator",
+        "email": "creator@apex.internal",
+        "full_name": "Apex Creator",
+        "role": "creator",
+        "organization_id": "org-apex",
+        "password_hash": "131eb21d2479470edd6664a25592b5840a825e9bfb617732780ac59219af37a8",
+        "created_at": "2026-01-01T00:00:00Z"
+    }
+]
+
+SAMPLE_APEX_BRAND = {
+    "id": "brand-apex-001",
+    "organization_id": "org-apex",
+    "name": "Apex Global Cloud",
+    "description": "High-velocity financial cloud infrastructure and trading platforms.",
+    "preferred_tone": "Precise, quantitative, and institutional.",
+    "target_audience": "Fintech CTOs and institutional traders.",
+    "approved_terminology": ["Apex Cloud", "Apex Ultra"],
+    "prohibited_terminology": ["cheap", "unbreakable"],
+    "required_phrases": ["Apex Global FinCloud. Licensed institutional platform."],
+    "style_guidelines": ["Maintain institutional financial precision."],
+    "formatting_preferences": {
+        "price_format": "${amount}",
+        "date_format": "YYYY-MM-DD",
+        "disclaimer_position": "footer",
+        "brand_colors": ["#1e3a8a", "#3b82f6", "#0f172a", "#ffffff"]
+    },
+    "created_at": "2026-01-01T00:00:00Z",
+    "updated_at": "2026-01-01T00:00:00Z"
+}
+

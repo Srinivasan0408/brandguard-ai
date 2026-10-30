@@ -38,7 +38,10 @@ def check_terminology(content: str, brand: Dict[str, Any]) -> List[Dict[str, Any
                 ),
                 "applicable_guideline": f"Prohibited Terminology: '{term}'",
                 "approved_source": "Brand Knowledge Hub - Approved Terminology Register",
+                "evidence_record_id": f"guideline-term-{term.lower()}",
+                "evidence_status": "verified",
                 "recommended_correction": replacement,
+                "correction_rationale": f"Replaces prohibited buzzword '{matched_text}' with corporate style approved phrasing '{replacement}'.",
                 "detection_method": "deterministic_rule",
                 "confidence": "high",
                 "status": "open"
@@ -69,7 +72,10 @@ def check_terminology(content: str, brand: Dict[str, Any]) -> List[Dict[str, Any
                         ),
                         "applicable_guideline": "Product Naming Standard: Use 'NovaTech Pro' consistently",
                         "approved_source": "Brand Knowledge Hub - Product Naming Registry",
+                        "evidence_record_id": "guideline-naming-novatech-pro",
+                        "evidence_status": "verified",
                         "recommended_correction": "NovaTech Pro",
+                        "correction_rationale": "Adheres strictly to the registered trademark nomenclature 'NovaTech Pro'.",
                         "detection_method": "deterministic_rule",
                         "confidence": "high",
                         "status": "open"

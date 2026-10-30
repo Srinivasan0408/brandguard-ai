@@ -5,7 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 
 from .config import settings
-from .routers import health, brands, facts, reviews, insights
+from .routers import health, brands, facts, reviews, insights, auth, visual
 
 app = FastAPI(
     title="BrandGuard AI API",
@@ -40,9 +40,11 @@ app.add_middleware(
 
 # Register API routers
 app.include_router(health.router)
+app.include_router(auth.router)
 app.include_router(brands.router)
 app.include_router(facts.router)
 app.include_router(reviews.router)
+app.include_router(visual.router)
 app.include_router(insights.router)
 
 # Serve the frontend homepage
@@ -81,7 +83,7 @@ def serve_frontend_routes(full_path: str):
     from fastapi import HTTPException
     raise HTTPException(status_code=404, detail="Frontend build not found")
 
-if __name__ == "main":
+if __name__ == "__main__":
     import uvicorn
 
     uvicorn.run(

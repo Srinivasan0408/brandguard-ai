@@ -38,6 +38,89 @@ class FindingStatus(str, Enum):
     DISMISSED = "dismissed"
     MANUAL_EDITED = "manual_edited"
 
+# --- Organizations ---
+class Organization(BaseModel):
+    id: str
+    name: str
+    slug: str
+    created_at: str
+
+# --- Users & Auth ---
+class UserRole(str, Enum):
+    ADMIN = "admin"
+    REVIEWER = "reviewer"
+    CREATOR = "creator"
+
+class UserBase(BaseModel):
+    username: str
+    email: str
+    full_name: str
+    role: UserRole
+    organization_id: str
+
+class User(UserBase):
+    id: str
+    created_at: str
+
+class UserCreate(UserBase):
+    password: str
+
+class UserLogin(BaseModel):
+    username: str
+    password: str
+
+class TokenResponse(BaseModel):
+    access_token: str
+    token_type: str = "bearer"
+    user: User
+
+# --- Visual Asset Analysis ---
+class VisualCheckResult(BaseModel):
+    check_name: str
+    status: str # "pass", "fail", "warning", "needs_review"
+    severity: SeverityLevel
+    observed_value: str
+    expected_value: str
+    explanation: str
+    recommended_fix: str
+    uncertainty_note: Optional[str] = None
+
+class DominantColor(BaseModel):
+    hex: str
+    rgb: List[int]
+    percentage: float
+    is_brand_match: bool
+    nearest_brand_color: Optional[str] = None
+
+class VisualFinding(BaseModel):
+    category: str
+    severity: SeverityLevel
+    title: str
+    trigger_text: str
+    applicable_guideline: str
+    recommended_correction: str
+    explanation: str
+    confidence: str
+
+class VisualAnalysisResponse(BaseModel):
+    file_name: str
+    file_size_bytes: int
+    dimensions: Dict[str, int]
+    format: str
+    dominant_colors: List[DominantColor]
+    brand_palette: List[str]
+    palette_compliance_score: float
+    contrast_ratio: Optional[float] = None
+    wcag_aa_compliant: Optional[bool] = None
+    checks: List[VisualCheckResult]
+    analyzed_at: str
+    extracted_text: Optional[str] = None
+    ocr_available: bool = False
+    ocr_confidence: Optional[float] = None
+    ocr_status_note: Optional[str] = None
+    ocr_findings: List[VisualFinding] = []
+
+
 # --- Brands ---
 class BrandBase(BaseModel):
     name: str
@@ -49,6 +132,7 @@ class BrandBase(BaseModel):
     required_phrases: List[str] = []
     style_guidelines: List[str] = []
     formatting_preferences: Dict[str, Any] = {}
+    organization_id: Optional[str] = "org-novatech"
 
 class Brand(BrandBase):
     id: str
@@ -80,6 +164,7 @@ class ApprovedFactBase(BaseModel):
     source_url: Optional[str] = None
     verification_date: str
     status: str = "active"
+    organization_id: Optional[str] = "org-novatech"
 
 class ApprovedFact(ApprovedFactBase):
     id: str
@@ -110,7 +195,10 @@ class Finding(BaseModel):
     explanation: str
     applicable_guideline: str
     approved_source: Optional[str] = None
+    evidence_record_id: Optional[str] = None
+    evidence_status: Optional[str] = "verified" # "verified", "unverified", "insufficient_evidence", "advisory"
     recommended_correction: str
+    correction_rationale: Optional[str] = None
     detection_method: DetectionMethod
     confidence: str = "high"
     status: FindingStatus = FindingStatus.OPEN
@@ -168,6 +256,7 @@ class ApprovalEvent(BaseModel):
 class ContentItem(BaseModel):
     id: str
     brand_id: str
+    organization_id: Optional[str] = "org-novatech"
     title: str
     content_type: str  # social, marketing, website, email, ad, document
     channel: str
@@ -187,6 +276,7 @@ class ContentItem(BaseModel):
 
 class ContentCreateRequest(BaseModel):
     brand_id: str
+    organization_id: Optional[str] = "org-novatech"
     title: str
     content_type: str
     channel: str

@@ -2,35 +2,47 @@
 ## TechCircuit Hackathon — Round 2: The Build
 ### Team: TECHSPARKZ
 ### Tagline: *Create Freely. Publish Confidently.*
+## TechCircuit Hackathon — Round 3 Final Build & Hardening
+### Team: TECHSPARKZ &bull; Tagline: *Create Freely. Publish Confidently.*
 
 ---
 
-## 1. Overview
+## 1. Product Overview
 
-**BrandGuard AI** is an intelligent enterprise brand governance and pre-publication compliance platform designed to ensure organizations publish marketing content, social media posts, and product communications that strictly align with approved brand guidelines, verified product facts, pricing matrices, and trademark standards.
+**BrandGuard AI** is an intelligent enterprise brand governance and pre-publication compliance platform. It serves as an automated and human-in-the-loop compliance firewall to ensure content published across distributed marketing teams, agencies, and generative AI pipelines strictly adheres to approved brand guidelines, verified pricing, terminology standards, and visual brand assets.
 
 ---
 
-## 2. Key Features
+## 2. Key Features & Completed Round 3 Hardening Improvements
 
-- **Brand Knowledge Hub**: Full configuration for fictional enterprise brand **NovaTech**, including tone, approved terminology tags, prohibited buzzwords, and mandatory disclaimers.
-- **Approved Facts Registry**: Ground-truth facts registry comparing prices and product specs deterministically with source citations.
-- **Content Submission & Ingestion**: Text submission, metadata tagging, and `.txt`/`.md`/`.markdown` document upload with file validation.
-- **Demonstration Presets**: 1-click loading of realistic non-compliant and compliant sample posts for instant testing.
-- **Multi-Pipeline Review Engine**: Terminology boundary regex matcher, fact contradiction detector, promotional claims guardrails, tone heuristics, accessibility checks, and disclaimer verification.
-- **Interactive Corrections**: 1-click [Apply Correction] automatically rewrites text and generates versioned revision snapshots.
-- **Human-in-the-Loop Review Queue**: Full review workflow (`draft` &rarr; `in_review` &rarr; `changes_requested` &rarr; `approved`) with role-based access control (RBAC).
-- **Audit Trail & Revision History**: Immutable snapshot history (`v1`, `v2`, etc.) and chronological event timeline tracking all decisions and reviewer feedback.
-- **Governance Insights**: Real-time analytics computed strictly from stored review records without fabricated statistics.
-- **Zero-Setup Demo Persistence**: Self-seeding SQLite database ensures evaluators can test immediately without provisioning cloud database credentials.
+### A. Password Security — Modern Argon2id & Transparent Migration (Improvement 1)
+- **OWASP-Recommended Argon2id Implementation**: Upgraded password security using `argon2-cffi` configured with industry-standard parameters (`time_cost=3`, `memory_cost=65536` [64 MiB], `parallelism=4`, `hash_len=32`, `salt_len=16`).
+- **Seamless Auto-Migration**: Legacy SHA-256 credentials verify in constant time, then automatically re-hash and upgrade to Argon2id in the database upon successful authentication with zero user disruption.
+- **Timing Leak Protection**: Constant-time verification protecting against credential enumeration attacks.
+- **Plaintext Safeguards**: Plaintext passwords are never stored, cached, or logged.
+
+### B. Multi-Tenant Organization-Level Data Isolation (Improvement 2)
+- **Multi-Tenant Schema**: Introduced `organizations` schema with seeded organizations (`org-novatech` and `org-apex`).
+- **Data Scoping**: Associated `brands`, `approved_facts`, `content_items`, `visual_analyses`, `audit_logs`, and `users` with their respective `organization_id`.
+- **Strict Server-Side Authorization**: Enforced `validate_org_access` across all routes. Cross-organization access, modification, or approval attempts return `HTTP 403 Forbidden`.
+- **Enforced Role Permissions**:
+  - `admin`: Manages team users, brand rules, approved facts, and reviews within their organization.
+  - `reviewer`: Reviews submissions and executes approvals/change requests within their organization.
+  - `creator`: Submits content, views guidelines/facts, and applies corrections. Forbidden from approving content or modifying brand guidelines.
+
+### C. OCR-Based Visual Brand Analysis & Accessibility (Improvement 3)
+- **Tesseract Canvas OCR**: Integrated OCR extraction via `pytesseract` supporting PNG, JPEG, and WebP marketing images.
+- **Graphic Canvas Governance**: Analyzes extracted text against brand guidelines for prohibited terminology, pricing contradictions, unapproved naming abbreviations, and absolute promotional claims.
+- **WCAG 2.2 AA Contrast Validation**: Calculates relative luminance and tonal contrast ratios between dominant foreground and background colors against the 4.5:1 standard.
+- **Explicit Uncertainty Notes & Resilient Fallback**: Honest disclosure when OCR confidence is impacted by stylized typography or background gradients. Graceful fallback mode ensures color, contrast, and resolution analysis function seamlessly when Tesseract binaries are absent.
 
 ---
 
 ## 3. Technology Stack
 
-- **Frontend**: React 19, TypeScript, Vite, Tailwind CSS v4, Lucide React icons.
-- **Backend**: Python 3.14, FastAPI, Pydantic v2, Pytest, HTTPX.
-- **Database**: Supabase PostgreSQL schema with Row Level Security (RLS) + Fallback local SQLite database for zero-setup offline evaluation.
+- **Frontend**: React 19, TypeScript, Vite 8, Tailwind CSS v4, Lucide React icons.
+- **Backend**: Python 3.14, FastAPI, Pydantic v2, Argon2id (`argon2-cffi`), PyJWT, Pillow (PIL), PyTesseract, Pytest, HTTPX, ReportLab.
+- **Database**: SQLite 3 with WAL persistence + Supabase PostgreSQL schema with RLS policies.
 - **Deployment Compatibility**: Frontend ready for Vercel; Backend ready for Render.
 
 ---
@@ -41,14 +53,14 @@
 - Node.js 18+ and npm
 - Python 3.10+ and pip
 
-### Step 1: Clone and Setup Environment
+### Step 1: Clone and Configure Environment
 ```bash
 git clone <repository-url>
 cd "Brand govern"
 cp .env.example .env
 ```
 
-### Step 2: Start the Backend Service
+### Step 2: Start the FastAPI Backend Service
 ```bash
 # Install backend dependencies
 pip install -r backend/requirements.txt
@@ -56,10 +68,10 @@ pip install -r backend/requirements.txt
 # Run the FastAPI server (starts on http://127.0.0.1:8000)
 python backend/run.py
 ```
-*API documentation is available at `http://127.0.0.1:8000/docs`.*
-*Health status endpoint is available at `http://127.0.0.1:8000/health`.*
+- API Documentation (Swagger): `http://127.0.0.1:8000/docs`
+- Health Endpoint: `http://127.0.0.1:8000/health`
 
-### Step 3: Start the Frontend Application
+### Step 3: Start the React Frontend Application
 In a separate terminal:
 ```bash
 cd frontend
@@ -70,40 +82,67 @@ Open `http://localhost:5173` in your browser.
 
 ---
 
-## 5. Running Automated Tests
+## 5. Demo Accounts for Hackathon Judges
 
-Run the 12 automated test scenarios verifying the review engine, RBAC policies, and file validation:
+BrandGuard AI includes pre-seeded demonstration accounts with distinct RBAC permissions across organizations:
+
+| Role | Username | Password | Organization | Permitted Actions |
+|---|---|---|---|---|
+| **Reviewer** | `reviewer` | `reviewer123` | NovaTech (`org-novatech`) | Approves content, requests changes, reviews queue |
+| **Creator** | `creator` | `creator123` | NovaTech (`org-novatech`) | Creates drafts, runs reviews, applies corrections |
+| **Administrator** | `admin` | `admin123` | NovaTech (`org-novatech`) | Full governance access across NovaTech rules & team |
+| **Apex Admin** | `apex_admin` | `admin123` | Apex Corp (`org-apex`) | Multi-tenant test account for cross-org boundary verification |
+
+---
+
+## 6. Running Automated Tests
+
+Run the full automated test suite containing 27 regression, Round 3, and hardening test scenarios:
 ```bash
-python -m pytest backend/tests/test_brandguard.py -v
+python -m pytest backend/tests -v
 ```
-All 12 test scenarios pass with a 100% pass rate in ~2.8 seconds.
+**All 27 tests pass with a 100% pass rate in ~5.3 seconds.**
 
 ---
 
-## 6. Environment Variables
+## 7. Main End-to-End Judge Journey
 
-| Variable | Description | Default / Example |
+1. **Open Dashboard**: Visit `http://localhost:5173`. Observe real-time governance metrics and health status.
+2. **Authenticate**: Click **Login** in the top navigation bar. Select the **Creator** demo account (`creator` / `creator123`). Notice Argon2id authentication.
+3. **Inspect Brand Hub & Facts**: In the sidebar, navigate to **Brand Guidelines** and **Approved Facts** to review NovaTech's ground truth (NovaTech Pro price: ₹4,999; warranty: 12 months).
+4. **Run Compliance Review**: Go to **Content Review**. Click the preset **"High-Risk Non-Compliant Campaign"** and click **Run Brand Compliance Review**.
+5. **Inspect Evidence**: Observe the findings with linked fact IDs (`fact-novatech-001`), evidence statuses (*Ground-Truth Verified* vs *Insufficient Evidence*), and correction rationales.
+6. **Apply Correction**: Click **Apply Correction** on the price contradiction finding. Notice that the text updates to ₹4,999 and creates **Rev #2**.
+7. **Submit for Human Review**: Click **Submit for Human Review**. The content status updates to `In Review`.
+8. **Test Visual Analysis & OCR**: In the sidebar, click **Visual Analysis**. Click **Load Sample Brand Banner** and click **Run Visual Consistency Analysis**. Observe dominant color swatches, palette harmony score, WCAG 2.2 AA contrast ratios, and the OCR canvas text & brand rule inspection panel.
+9. **Log in as Reviewer**: Click the user profile pill &rarr; switch to **Reviewer** (`reviewer` / `reviewer123`).
+10. **Review Queue Sign-Off**: Go to **Review Queue**, select the submitted post, enter feedback, and click **Approve Content**.
+11. **Inspect Audit History**: In **Review History**, inspect the revision snapshots and the immutable governance event timeline.
+12. **Multi-Tenant Boundary Test**: Log in as `apex_admin` and observe that NovaTech reviews and guidelines are completely isolated (`HTTP 403 Forbidden`).
+
+---
+
+## 8. Deployment Configuration
+
+- **Frontend on Vercel**: Configured via [`vercel.json`](file:///c:/Users/srini/OneDrive/Documents/Brand%20govern/vercel.json).
+- **Backend on Render**: Configured via [`render.yaml`](file:///c:/Users/srini/OneDrive/Documents/Brand%20govern/render.yaml).
+- **Health Check**: Endpoint `GET /health` returns JSON status, database health, and review engine mode.
+
+---
+
+## 9. Product Roadmap
+
+| Milestone | Status | Key Features |
 |---|---|---|
-| `PORT` | Backend server port | `8000` |
-| `ENVIRONMENT` | Runtime mode | `development` or `production` |
-| `DEMO_MODE` | Enables pre-seeded demo mode | `true` |
-| `SUPABASE_URL` | Supabase Cloud PostgreSQL endpoint (optional) | `https://xyz.supabase.co` |
-| `SUPABASE_KEY` | Supabase Anon Key (optional) | `eyJ...` |
-| `OPENAI_API_KEY` | Optional OpenAI key for AI-assisted tone analysis | `sk-...` |
-| `GEMINI_API_KEY` | Optional Gemini key for AI-assisted tone analysis | `AIza...` |
-| `VITE_API_URL` | Frontend API URL for production deployment | `https://brandguard-api.onrender.com` |
+| **Round 2** | Completed | Full-stack MVP, deterministic review engine, approved facts registry, human review queue, revision snapshots, audit history. |
+| **Round 3** | Completed | Evidence-grounded traceability, deterministic visual asset analysis, WCAG 2.2 contrast checking, JWT authentication, server-side RBAC, and audit logs. |
+| **Round 3 Final Hardening** | Completed | Modern Argon2id password security with on-login transparent migration, multi-tenant organization-level data isolation, OCR-based visual canvas brand rule checking, and 27 passing automated tests. |
+| **Future Enterprise** | Planned | SAML 2.0 / Okta single sign-on integration, multi-signature approval quorums, and localized OCR models for non-Latin typography. |
 
 ---
 
-## 7. Round 2 Submission Materials
+## 10. Team Contributions (Team: TECHSPARKZ)
 
-The `submission/` folder contains the complete required documentation for Round 2:
-1. `ROUND2_PROJECT_SUMMARY.md`: Executive summary and problem statement.
-2. `COMPLETED_FEATURES.md`: Full catalog of implemented features.
-3. `TECHNOLOGY_AND_ARCHITECTURE.md`: Architecture diagrams, component breakdown, and tech choices.
-4. `CHANGES_FROM_ROUND1.md`: Specific progress and changes from Round 1.
-5. `KNOWN_LIMITATIONS.md`: Honest technical boundaries and responsible AI disclosures.
-6. `ROUND3_IMPROVEMENTS.md`: The exact three planned Round 3 engineering improvements.
-7. `DEMO_SCRIPT.md`: Step-by-step 5-minute hackathon evaluation script.
-8. `TEST_RESULTS.md`: Detailed test matrix and Pytest execution logs.
-9. `BRANDGUARD_AI_ROUND2_REPORT.md` & `BRANDGUARD_AI_ROUND2_REPORT.pdf`: Complete updated project report suitable for judges.
+- **Full-Stack Lead**: Full-stack application architecture, multi-tenant scoping, FastAPI endpoints, React SPA components, and Vite bundling.
+- **AI & Review Engine Engineer**: Boundary regex engines, fact contradiction comparator, OCR canvas rule validator, and Pillow/WCAG 2.2 visual analysis.
+- **Security & QA Engineer**: OWASP Argon2id hashing & on-login migration, multi-tenant boundary checks, server-side RBAC enforcement, and 27-scenario automated test suite.

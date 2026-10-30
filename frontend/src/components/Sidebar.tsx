@@ -4,6 +4,7 @@ import {
   FileSearch,
   BookOpen,
   CheckSquare,
+  Palette,
   Inbox,
   History,
   BarChart3,
@@ -14,6 +15,7 @@ import {
 export type NavTab =
   | 'overview'
   | 'content_review'
+  | 'visual_analysis'
   | 'brand_guidelines'
   | 'approved_facts'
   | 'review_queue'
@@ -37,6 +39,7 @@ export const Sidebar: React.FC<Props> = ({
   const navItems = [
     { id: 'overview', label: 'Overview', icon: LayoutDashboard },
     { id: 'content_review', label: 'Content Review', icon: FileSearch },
+    { id: 'visual_analysis', label: 'Visual Analysis', icon: Palette },
     { id: 'brand_guidelines', label: 'Brand Guidelines', icon: BookOpen },
     { id: 'approved_facts', label: 'Approved Facts', icon: CheckSquare },
     {
@@ -97,8 +100,8 @@ export const Sidebar: React.FC<Props> = ({
 
       {/* Footer Info */}
       <div className="p-4 border-t border-[#1a253a] text-xs text-slate-500">
-        <p className="font-medium text-slate-400">Inkloom AI Hackathon</p>
-        <p>Round 2: The Build &bull; TECHSPARKZ</p>
+        <p className="font-medium text-slate-400">TechCircuit Hackathon</p>
+        <p>Round 3 – Final Build &bull; Team TECHSPARKZ</p>
       </div>
     </aside>
   );

@@ -132,6 +132,7 @@ export const ContentReviewPage: React.FC<Props> = ({
 
     try {
       const result = await api.createAndReview({
+        id: currentItem?.status === 'draft' ? currentItem.id : undefined,
         brand_id: brandId,
         title,
         content_type: contentType,
@@ -529,6 +530,23 @@ export const ContentReviewPage: React.FC<Props> = ({
                         <span className="text-[11px] font-mono uppercase bg-[#18233a] border border-[#243350] text-cyan-300 px-2 py-0.5 rounded">
                           {finding.category}
                         </span>
+                        {/* Evidence Grounding Badge (Round 3) */}
+                        <span
+                          className={`text-[10px] font-mono px-2 py-0.5 rounded-full border ${
+                            finding.evidence_status === 'verified'
+                              ? 'bg-emerald-950/70 border-emerald-500/40 text-emerald-300'
+                              : finding.evidence_status === 'insufficient_evidence'
+                              ? 'bg-amber-950/70 border-amber-500/40 text-amber-300'
+                              : 'bg-blue-950/70 border-blue-500/40 text-blue-300'
+                          }`}
+                        >
+                          {finding.evidence_status === 'verified'
+                            ? 'Ground-Truth Verified'
+                            : finding.evidence_status === 'insufficient_evidence'
+                            ? 'Insufficient Evidence (High-Risk Claim)'
+                            : 'Policy Advisory'}
+                        </span>
+
                         {isApplied && (
                           <span className="text-[10px] bg-emerald-950 border border-emerald-500/50 text-emerald-300 font-semibold px-2 py-0.5 rounded-full">
                             Applied &check;
@@ -561,7 +579,7 @@ export const ContentReviewPage: React.FC<Props> = ({
                     {/* Explanation */}
                     <p className="text-xs text-slate-300 leading-relaxed">{finding.explanation}</p>
 
-                    {/* Applicable Guideline & Source */}
+                    {/* Applicable Guideline & Traceable Evidence Source (Round 3) */}
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-[11px] bg-[#141d30] p-2.5 rounded-lg border border-[#1f2b42]">
                       <div>
                         <span className="text-slate-400 font-medium block">Applicable Guideline:</span>
@@ -569,38 +587,51 @@ export const ContentReviewPage: React.FC<Props> = ({
                       </div>
                       {finding.approved_source && (
                         <div>
-                          <span className="text-slate-400 font-medium block">Approved Source:</span>
+                          <span className="text-slate-400 font-medium block">Verified Source Evidence:</span>
                           <span className="text-cyan-400">{finding.approved_source}</span>
+                          {finding.evidence_record_id && (
+                            <span className="block text-[10px] text-slate-500 font-mono mt-0.5">
+                              Record ID: {finding.evidence_record_id}
+                            </span>
+                          )}
                         </div>
                       )}
                     </div>
 
-                    {/* Recommended Correction */}
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-[#0d1526] border border-cyan-500/30 rounded-lg p-3">
-                      <div>
-                        <span className="text-[10px] uppercase font-bold text-cyan-400 tracking-wider block mb-0.5">
-                          Suggested Correction:
-                        </span>
-                        <span className="text-xs font-semibold text-emerald-300">
-                          {finding.recommended_correction}
-                        </span>
+                    {/* Suggested Correction & Rationale */}
+                    <div className="bg-[#0d1526] border border-cyan-500/30 rounded-lg p-3 space-y-2">
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                        <div>
+                          <span className="text-[10px] uppercase font-bold text-cyan-400 tracking-wider block mb-0.5">
+                            Suggested Correction:
+                          </span>
+                          <span className="text-xs font-semibold text-emerald-300">
+                            {finding.recommended_correction}
+                          </span>
+                        </div>
+
+                        {!isApplied && !isDismissed && (
+                          <div className="flex items-center gap-2 shrink-0">
+                            <button
+                              onClick={() => handleApplySuggestion(finding)}
+                              className="px-3 py-1.5 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs transition-colors flex items-center gap-1.5 shadow-sm"
+                            >
+                              <CheckCircle2 className="w-3.5 h-3.5" />
+                              <span>Apply Correction</span>
+                            </button>
+                            <button
+                              onClick={() => setDismissFindingId(finding.id)}
+                              className="px-2.5 py-1.5 rounded-lg bg-[#18233a] hover:bg-[#202e4d] text-slate-400 hover:text-slate-200 text-xs transition-colors"
+                            >
+                              Dismiss
+                            </button>
+                          </div>
+                        )}
                       </div>
 
-                      {!isApplied && !isDismissed && (
-                        <div className="flex items-center gap-2 shrink-0">
-                          <button
-                            onClick={() => handleApplySuggestion(finding)}
-                            className="px-3 py-1.5 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs transition-colors flex items-center gap-1.5 shadow-sm"
-                          >
-                            <CheckCircle2 className="w-3.5 h-3.5" />
-                            <span>Apply Correction</span>
-                          </button>
-                          <button
-                            onClick={() => setDismissFindingId(finding.id)}
-                            className="px-2.5 py-1.5 rounded-lg bg-[#18233a] hover:bg-[#202e4d] text-slate-400 hover:text-slate-200 text-xs transition-colors"
-                          >
-                            Dismiss
-                          </button>
+                      {finding.correction_rationale && (
+                        <div className="text-[11px] text-slate-400 pt-1 border-t border-[#1a253a]">
+                          <strong className="text-slate-300">Evidence Rationale:</strong> {finding.correction_rationale}
                         </div>
                       )}
                     </div>

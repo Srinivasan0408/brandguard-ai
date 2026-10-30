@@ -4,21 +4,30 @@ import {
   ContentItem,
   GovernanceInsights,
   HealthStatus,
-  Finding
+  Finding,
+  User,
+  VisualAnalysisResponse
 } from '../types';
 
 const API_BASE = import.meta.env.VITE_API_URL || '';
 
+function getAuthToken(): string | null {
+  return localStorage.getItem('brandguard_token');
+}
+
 async function request<T>(endpoint: string, options?: RequestInit): Promise<T> {
   const url = `${API_BASE}${endpoint}`;
-  const headers = {
+  const token = getAuthToken();
+
+  const headers: Record<string, string> = {
     'Content-Type': 'application/json',
-    ...(options?.headers || {}),
+    ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+    ...((options?.headers as Record<string, string>) || {}),
   };
 
   const response = await fetch(url, {
     ...options,
-    headers: options?.body instanceof FormData ? undefined : headers,
+    headers: options?.body instanceof FormData ? (token ? { 'Authorization': `Bearer ${token}` } : undefined) : headers,
   });
 
   if (!response.ok) {
@@ -78,6 +87,7 @@ export const api = {
   },
   getReview: (reviewId: string) => request<ContentItem>(`/api/reviews/${reviewId}`),
   createAndReview: (data: {
+    id?: string;
     brand_id: string;
     title: string;
     content_type: string;
@@ -98,6 +108,11 @@ export const api = {
     }),
   approveReview: (reviewId: string, action: { actor_name: string; actor_role: string; comments?: string }) =>
     request<ContentItem>(`/api/reviews/${reviewId}/approve`, {
+      method: 'POST',
+      body: JSON.stringify(action),
+    }),
+  rejectReview: (reviewId: string, action: { actor_name: string; actor_role: string; comments?: string }) =>
+    request<ContentItem>(`/api/reviews/${reviewId}/reject`, {
       method: 'POST',
       body: JSON.stringify(action),
     }),
@@ -134,6 +149,29 @@ export const api = {
       body: formData,
     });
   },
+
+  // Visual Asset Analysis (Round 3)
+  analyzeVisualAsset: async (file: File, brandId: string, altText?: string) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('brand_id', brandId);
+    if (altText) formData.append('alt_text', altText);
+    return request<VisualAnalysisResponse>('/api/visual/analyze', {
+      method: 'POST',
+      body: formData,
+    });
+  },
+  getVisualHistory: (brandId?: string) =>
+    request<any[]>(brandId ? `/api/visual/history?brand_id=${brandId}` : '/api/visual/history'),
+
+  // Auth & Multi-User Governance (Round 3)
+  login: (username: string, password: string) =>
+    request<{ access_token: string; token_type: string; user: User }>('/api/auth/login', {
+      method: 'POST',
+      body: JSON.stringify({ username, password }),
+    }),
+  getMe: () => request<User>('/api/auth/me'),
+  getUsers: () => request<User[]>('/api/auth/users'),
 
   // Insights
   getInsights: (brandId?: string) =>

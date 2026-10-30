@@ -2,9 +2,11 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Navbar } from './components/Navbar';
 import { Sidebar, NavTab } from './components/Sidebar';
 import { ToastContainer, ToastMessage } from './components/Toast';
+import { AuthModal } from './components/AuthModal';
 
 import { OverviewPage } from './pages/OverviewPage';
 import { ContentReviewPage } from './pages/ContentReviewPage';
+import { VisualAnalysisPage } from './pages/VisualAnalysisPage';
 import { BrandGuidelinesPage } from './pages/BrandGuidelinesPage';
 import { ApprovedFactsPage } from './pages/ApprovedFactsPage';
 import { ReviewQueuePage } from './pages/ReviewQueuePage';
@@ -12,12 +14,14 @@ import { ReviewHistoryPage } from './pages/ReviewHistoryPage';
 import { GovernanceInsightsPage } from './pages/GovernanceInsightsPage';
 import { SettingsPage } from './pages/SettingsPage';
 
-import { Brand, ApprovedFact, ContentItem, GovernanceInsights, HealthStatus } from './types';
+import { Brand, ApprovedFact, ContentItem, GovernanceInsights, HealthStatus, User as UserType } from './types';
 import { api } from './services/api';
 
 export function App() {
   const [activeTab, setActiveTab] = useState<NavTab>('overview');
   const [userRole, setUserRole] = useState<'creator' | 'reviewer'>('creator');
+  const [currentUser, setCurrentUser] = useState<UserType | null>(null);
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [health, setHealth] = useState<HealthStatus | null>(null);
 
   const [brands, setBrands] = useState<Brand[]>([]);
@@ -40,6 +44,25 @@ export function App() {
   const dismissToast = (id: string) => {
     setToasts((prev) => prev.filter((t) => t.id !== id));
   };
+
+  // Restore session from localStorage if present
+  useEffect(() => {
+    const savedUserStr = localStorage.getItem('brandguard_user');
+    const token = localStorage.getItem('brandguard_token');
+    if (savedUserStr && token) {
+      try {
+        const u = JSON.parse(savedUserStr);
+        setCurrentUser(u);
+        if (u.role === 'reviewer' || u.role === 'admin') {
+          setUserRole('reviewer');
+        } else {
+          setUserRole('creator');
+        }
+      } catch {
+        // ignore
+      }
+    }
+  }, []);
 
   // Load initial data
   const loadData = useCallback(async () => {
@@ -91,6 +114,24 @@ export function App() {
     if (found) setActiveBrand(found);
   };
 
+  // Auth Handlers
+  const handleLoginSuccess = (user: UserType) => {
+    setCurrentUser(user);
+    if (user.role === 'reviewer' || user.role === 'admin') {
+      setUserRole('reviewer');
+    } else {
+      setUserRole('creator');
+    }
+    setIsAuthModalOpen(false);
+  };
+
+  const handleLogout = () => {
+    localStorage.removeItem('brandguard_token');
+    localStorage.removeItem('brandguard_user');
+    setCurrentUser(null);
+    showToast('info', 'Logged out of session.');
+  };
+
   // Reset Demo
   const handleResetDemo = async () => {
     setIsResetting(true);
@@ -109,16 +150,27 @@ export function App() {
   const handleLoadSampleReview = async () => {
     setActiveTab('content_review');
     try {
+      // Check if sample post already exists in contentItems to prevent duplicates
+      const existing = contentItems.find(
+        (i) => i.campaign_ref === 'Q1-LAUNCH-CAMPAIGN' || i.id === 'demo-content-invalid'
+      );
+      if (existing) {
+        setCurrentItem(existing);
+        showToast('info', 'Loaded sample non-compliant post for review.');
+        return;
+      }
+
       const res = await api.createAndReview({
+        id: 'demo-content-invalid',
         brand_id: activeBrand?.id || 'brand-novatech-001',
-        title: 'Nova Pro Enterprise Security Launch',
+        title: 'High-Risk Promotional Campaign (Contains Violations)',
         content_type: 'social',
         channel: 'LinkedIn & X / Twitter',
         campaign_ref: 'Q1-LAUNCH-CAMPAIGN',
         image_alt_text: '',
         raw_content:
           "Get the all-new Nova Pro today for a cheap price of only ₹5,999! Our revolutionary system provides 100% guaranteed results and unbreakable cyber protection. The best in the world for enterprise infrastructure, risk-free!",
-        created_by: 'Creator (Alice)'
+        created_by: currentUser ? `${currentUser.full_name} (${currentUser.role})` : `Creator (${userRole})`
       });
       setCurrentItem(res);
       await loadData();
@@ -139,6 +191,9 @@ export function App() {
       <Navbar
         currentRole={userRole}
         onRoleChange={setUserRole}
+        currentUser={currentUser}
+        onOpenAuth={() => setIsAuthModalOpen(true)}
+        onLogout={handleLogout}
         health={health}
         onResetDemo={handleResetDemo}
         isResetting={isResetting}
@@ -179,6 +234,13 @@ export function App() {
                 }}
                 onShowToast={showToast}
                 userRole={userRole}
+              />
+            )}
+
+            {activeTab === 'visual_analysis' && (
+              <VisualAnalysisPage
+                activeBrand={activeBrand}
+                onShowToast={showToast}
               />
             )}
 
@@ -239,6 +301,15 @@ export function App() {
           </div>
         </main>
       </div>
+
+      {/* Auth Modal */}
+      {isAuthModalOpen && (
+        <AuthModal
+          onLoginSuccess={handleLoginSuccess}
+          onShowToast={showToast}
+          onCancel={() => setIsAuthModalOpen(false)}
+        />
+      )}
 
       {/* Floating Toast Alerts */}
       <ToastContainer toasts={toasts} onDismiss={dismissToast} />

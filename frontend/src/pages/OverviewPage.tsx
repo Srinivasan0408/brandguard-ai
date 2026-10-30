@@ -234,44 +234,56 @@ export const OverviewPage: React.FC<Props> = ({
             <table className="w-full text-left text-sm text-slate-300">
               <thead className="bg-[#141d30] text-xs uppercase text-slate-400 tracking-wider">
                 <tr>
-                  <th className="px-5 py-3 font-medium">Content Title</th>
-                  <th className="px-5 py-3 font-medium">Channel</th>
-                  <th className="px-5 py-3 font-medium">Status</th>
-                  <th className="px-5 py-3 font-medium">Revision</th>
-                  <th className="px-5 py-3 font-medium">Violations</th>
-                  <th className="px-5 py-3 font-medium text-right">Action</th>
+                  <th className="px-4 py-3 font-medium">Content Title</th>
+                  <th className="px-4 py-3 font-medium">Brand</th>
+                  <th className="px-4 py-3 font-medium">Submission Date</th>
+                  <th className="px-4 py-3 font-medium">Publication Channel</th>
+                  <th className="px-4 py-3 font-medium">Current Status</th>
+                  <th className="px-4 py-3 font-medium">Revision</th>
+                  <th className="px-4 py-3 font-medium">Last Updated</th>
+                  <th className="px-4 py-3 font-medium text-right">Action</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#1f2b42]">
                 {recentItems.slice(0, 5).map((item) => {
-                  const findingsCount = item.latest_review?.findings_count ?? 0;
-                  const critCount = item.latest_review?.critical_count ?? 0;
+                  const brandName = item.brand_id === 'brand-apex-001' ? 'Apex Global' : 'NovaTech Pro';
+                  const submissionDate = new Date(item.created_at).toLocaleDateString(undefined, {
+                    month: 'short',
+                    day: 'numeric',
+                    year: 'numeric'
+                  });
+                  const updatedDate = new Date(item.updated_at).toLocaleTimeString(undefined, {
+                    hour: '2-digit',
+                    minute: '2-digit'
+                  });
 
                   return (
-                    <tr key={item.id} className="hover:bg-[#162035] transition-colors">
-                      <td className="px-5 py-4 font-medium text-white max-w-xs truncate">
+                    <tr key={item.id} className="hover:bg-[#162035] transition-colors text-xs">
+                      <td className="px-4 py-3.5 font-medium text-white max-w-[200px] truncate">
                         {item.title}
                       </td>
-                      <td className="px-5 py-4 text-xs text-slate-400">{item.channel}</td>
-                      <td className="px-5 py-4">
+                      <td className="px-4 py-3.5 text-cyan-300 font-medium">
+                        {brandName}
+                      </td>
+                      <td className="px-4 py-3.5 text-slate-400">
+                        {submissionDate}
+                      </td>
+                      <td className="px-4 py-3.5 text-slate-300">
+                        {item.channel}
+                      </td>
+                      <td className="px-4 py-3.5">
                         <StatusBadge status={item.status} />
                       </td>
-                      <td className="px-5 py-4 text-xs font-mono text-slate-400">
-                        v{item.current_revision}
+                      <td className="px-4 py-3.5 font-mono text-slate-400">
+                        Rev #{item.current_revision}
                       </td>
-                      <td className="px-5 py-4">
-                        {findingsCount === 0 ? (
-                          <span className="text-xs text-emerald-400 font-medium">0 violations</span>
-                        ) : (
-                          <span className={`text-xs font-semibold ${critCount > 0 ? 'text-red-400' : 'text-amber-400'}`}>
-                            {findingsCount} findings {critCount > 0 && `(${critCount} crit)`}
-                          </span>
-                        )}
+                      <td className="px-4 py-3.5 text-slate-400 font-mono">
+                        {updatedDate}
                       </td>
-                      <td className="px-5 py-4 text-right">
+                      <td className="px-4 py-3.5 text-right">
                         <button
                           onClick={() => onNavigate('content_review')}
-                          className="text-xs px-2.5 py-1 rounded bg-[#1f2c45] hover:bg-cyan-500/20 hover:text-cyan-300 text-slate-300 font-medium transition-colors"
+                          className="px-2.5 py-1 rounded bg-[#1f2c45] hover:bg-cyan-500/20 hover:text-cyan-300 text-slate-300 font-medium transition-colors"
                         >
                           Inspect
                         </button>

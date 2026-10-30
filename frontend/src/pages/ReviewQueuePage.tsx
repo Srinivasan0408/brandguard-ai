@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import {
   Inbox,
   CheckCircle2,
+  XCircle,
   AlertOctagon,
   Clock,
   UserCheck,
@@ -42,6 +43,31 @@ export const ReviewQueuePage: React.FC<Props> = ({
   const selectedItem =
     queueItems.find((i) => i.id === selectedItemId) ||
     (queueItems.length > 0 ? queueItems[0] : null);
+
+  // Reject Handler
+  const handleReject = async () => {
+    if (!selectedItem) return;
+    if (!reviewerComment.trim()) {
+      onShowToast('error', 'Please provide feedback in the comment box explaining why content is rejected.');
+      return;
+    }
+
+    setIsProcessing(true);
+    try {
+      await api.rejectReview(selectedItem.id, {
+        actor_name: `Reviewer (${userRole})`,
+        actor_role: userRole,
+        comments: reviewerComment
+      });
+      onShowToast('info', `Content "${selectedItem.title}" has been rejected.`);
+      setReviewerComment('');
+      onItemUpdated();
+    } catch (err: any) {
+      onShowToast('error', err.message || 'Reject action failed');
+    } finally {
+      setIsProcessing(false);
+    }
+  };
 
   // Approve Handler
   const handleApprove = async () => {
@@ -284,11 +310,41 @@ export const ReviewQueuePage: React.FC<Props> = ({
                 />
               </div>
 
+              {/* Critical Violation Warning Banner */}
+              {(selectedItem.latest_review?.critical_count ?? 0) > 0 && (
+                <div className="p-3.5 rounded-lg bg-red-950/40 border border-red-500/40 text-xs text-red-200 flex items-start gap-2.5">
+                  <ShieldAlert className="w-5 h-5 text-red-400 shrink-0 mt-0.5" />
+                  <div>
+                    <p className="font-semibold text-red-300">Approval Blocked by Critical Violations</p>
+                    <p className="text-red-300/80 mt-0.5">
+                      This submission contains unresolved critical compliance violations. Publication approval is disabled until changes are requested or the content is rejected.
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {/* Creator separation of duties note */}
+              {userRole === 'creator' && (
+                <div className="p-2.5 rounded-lg bg-amber-950/30 border border-amber-500/30 text-xs text-amber-300 flex items-center gap-2">
+                  <AlertOctagon className="w-4 h-4 text-amber-400 shrink-0" />
+                  <span>Separation of Duties: Creators cannot approve or reject content. Switch to Reviewer mode to take governance actions.</span>
+                </div>
+              )}
+
               {/* Decision Action Buttons */}
               <div className="flex flex-wrap items-center justify-end gap-3 pt-2">
                 <button
+                  onClick={handleReject}
+                  disabled={isProcessing || userRole === 'creator'}
+                  className="px-4 py-2 rounded-lg bg-rose-950/40 border border-rose-500/40 text-rose-300 font-semibold text-xs hover:bg-rose-900/50 transition-colors flex items-center gap-2 disabled:opacity-50"
+                >
+                  <XCircle className="w-4 h-4" />
+                  <span>Reject Submission</span>
+                </button>
+
+                <button
                   onClick={handleRequestChanges}
-                  disabled={isProcessing}
+                  disabled={isProcessing || userRole === 'creator'}
                   className="px-4 py-2 rounded-lg bg-[#1f293d] border border-amber-500/40 text-amber-300 font-semibold text-xs hover:bg-[#283652] transition-colors flex items-center gap-2 disabled:opacity-50"
                 >
                   <AlertOctagon className="w-4 h-4" />
@@ -297,8 +353,8 @@ export const ReviewQueuePage: React.FC<Props> = ({
 
                 <button
                   onClick={handleApprove}
-                  disabled={isProcessing}
-                  className="px-5 py-2 rounded-lg bg-gradient-to-r from-emerald-500 to-teal-500 text-slate-950 font-bold text-xs hover:from-emerald-400 hover:to-teal-400 transition-all flex items-center gap-2 shadow-lg shadow-emerald-950/40 disabled:opacity-50"
+                  disabled={isProcessing || (selectedItem.latest_review?.critical_count ?? 0) > 0 || userRole === 'creator'}
+                  className="px-5 py-2 rounded-lg bg-gradient-to-r from-emerald-500 to-teal-500 text-slate-950 font-bold text-xs hover:from-emerald-400 hover:to-teal-400 transition-all flex items-center gap-2 shadow-lg shadow-emerald-950/40 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <CheckCircle2 className="w-4 h-4" />
                   <span>Approve Content</span>

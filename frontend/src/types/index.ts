@@ -16,7 +16,10 @@ export interface Finding {
   explanation: string;
   applicable_guideline: string;
   approved_source?: string;
+  evidence_record_id?: string;
+  evidence_status?: 'verified' | 'unverified' | 'insufficient_evidence' | 'advisory';
   recommended_correction: string;
+  correction_rationale?: string;
   detection_method: string;
   confidence: string;
   status: FindingStatus;
@@ -171,3 +174,72 @@ export interface HealthStatus {
     llm_provider: string;
   };
 }
+
+// --- Round 3 Types ---
+export type UserRole = 'admin' | 'reviewer' | 'creator';
+
+export interface User {
+  id: string;
+  username: string;
+  email: string;
+  full_name: string;
+  role: UserRole;
+  organization_id: string;
+  created_at: string;
+}
+
+export interface AuthState {
+  user: User | null;
+  token: string | null;
+  isAuthenticated: boolean;
+}
+
+export interface VisualCheckResult {
+  check_name: string;
+  status: 'pass' | 'fail' | 'warning' | 'needs_review';
+  severity: SeverityLevel;
+  observed_value: string;
+  expected_value: string;
+  explanation: string;
+  recommended_fix: string;
+  uncertainty_note?: string;
+}
+
+export interface DominantColor {
+  hex: string;
+  rgb: [number, number, number];
+  percentage: number;
+  is_brand_match: boolean;
+  nearest_brand_color?: string;
+}
+
+export interface VisualFinding {
+  category: string;
+  severity: SeverityLevel;
+  title: string;
+  trigger_text: string;
+  applicable_guideline: string;
+  recommended_correction: string;
+  explanation: string;
+  confidence: string;
+}
+
+export interface VisualAnalysisResponse {
+  file_name: string;
+  file_size_bytes: number;
+  dimensions: { width: number; height: number };
+  format: string;
+  dominant_colors: DominantColor[];
+  brand_palette: string[];
+  palette_compliance_score: number;
+  contrast_ratio?: number;
+  wcag_aa_compliant?: boolean;
+  checks: VisualCheckResult[];
+  analyzed_at: string;
+  extracted_text?: string;
+  ocr_available?: boolean;
+  ocr_confidence?: number;
+  ocr_status_note?: string;
+  ocr_findings?: VisualFinding[];
+}
+

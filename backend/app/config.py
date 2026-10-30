@@ -3,9 +3,12 @@ from pydantic import BaseModel
 
 class Settings(BaseModel):
     APP_NAME: str = "BrandGuard AI"
-    APP_VERSION: str = "2.0.0"
+    APP_VERSION: str = "3.0.0"
     ENVIRONMENT: str = os.getenv("ENVIRONMENT", "development")
     DEMO_MODE: bool = os.getenv("DEMO_MODE", "true").lower() in ("true", "1", "yes")
+    JWT_SECRET: str = os.getenv("JWT_SECRET", "brandguard-ai-round3-insecure-dev-secret-key-32chars")
+    JWT_ALGORITHM: str = "HS256"
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24 # 24 hours
     
     # Supabase (optional for demo / fallback to local SQLite)
     SUPABASE_URL: str = os.getenv("SUPABASE_URL", "")
